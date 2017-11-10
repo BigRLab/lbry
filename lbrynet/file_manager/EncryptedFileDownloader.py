@@ -35,18 +35,29 @@ class ManagedEncryptedFileDownloader(EncryptedFileSaver):
     STATUS_RUNNING = "running"
     STATUS_STOPPED = "stopped"
     STATUS_FINISHED = "finished"
-
+    """
+    These are started by EncryptedFileManager, aka, file_manager
+    """
     def __init__(self, rowid, stream_hash, peer_finder, rate_limiter,
                  blob_manager, stream_info_manager, lbry_file_manager,
                  payment_rate_manager, wallet, download_directory,
-                 file_name=None):
+                 file_name=None, sd_hash=None):
+
         EncryptedFileSaver.__init__(self, stream_hash, peer_finder,
                                     rate_limiter, blob_manager,
                                     stream_info_manager,
                                     payment_rate_manager, wallet,
                                     download_directory,
                                     file_name)
-        self.sd_hash = None
+        if not sd_hash:
+            sd_hash = yield self.stream_info_manager.get_sd_blob_hashes_for_stream(self.stream_hash)
+            if sd_hash:
+                self.sd_hash = sd_hash[0]
+            else:
+                raise NoSuchStreamHash(self.stream_hash)
+        else:
+            self.sd_hash = sd_hash
+
         self.rowid = rowid
         self.lbry_file_manager = lbry_file_manager
         self._saving_status = False
@@ -57,7 +68,6 @@ class ManagedEncryptedFileDownloader(EncryptedFileSaver):
 
     @defer.inlineCallbacks
     def restore(self):
-        yield self.load_file_attributes()
 
         status = yield self.lbry_file_manager.get_lbry_file_status(self)
         log_status(self.file_name, self.sd_hash, status)
@@ -102,22 +112,8 @@ class ManagedEncryptedFileDownloader(EncryptedFileSaver):
                                                     num_blobs_known, status))
 
     @defer.inlineCallbacks
-    def load_file_attributes(self, sd_hash=None):
-        if not sd_hash:
-            sd_hash = yield self.stream_info_manager.get_sd_blob_hashes_for_stream(self.stream_hash)
-            if sd_hash:
-                self.sd_hash = sd_hash[0]
-            else:
-                raise NoSuchStreamHash(self.stream_hash)
-        else:
-            self.sd_hash = sd_hash
-
-        defer.returnValue(None)
-
-    @defer.inlineCallbacks
     def _start(self):
         yield EncryptedFileSaver._start(self)
-        yield self.load_file_attributes()
         status = yield self._save_status()
         log_status(self.file_name, self.sd_hash, status)
         defer.returnValue(status)

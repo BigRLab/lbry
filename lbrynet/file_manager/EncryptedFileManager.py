@@ -140,7 +140,8 @@ class EncryptedFileManager(object):
     @defer.inlineCallbacks
     def start_lbry_file(self, rowid, stream_hash,
                         payment_rate_manager, blob_data_rate=None,
-                        download_directory=None, file_name=None):
+                        download_directory=None, file_name=None,
+                        sd_hash=None):
         if not download_directory:
             download_directory = self.download_directory
         payment_rate_manager.min_blob_data_payment_rate = blob_data_rate
@@ -155,7 +156,8 @@ class EncryptedFileManager(object):
             payment_rate_manager,
             self.session.wallet,
             download_directory,
-            file_name=file_name
+            file_name=file_name,
+            sd_hash = sd_hash
         )
         yield lbry_file_downloader.set_stream_info()
         self.lbry_files.append(lbry_file_downloader)
@@ -184,11 +186,11 @@ class EncryptedFileManager(object):
 
     @defer.inlineCallbacks
     def add_lbry_file(self, stream_hash, payment_rate_manager, blob_data_rate=None,
-                      download_directory=None, file_name=None):
+                      download_directory=None, file_name=None, sd_hash=None):
         rowid = yield self._save_lbry_file(stream_hash, blob_data_rate)
         lbry_file = yield self.start_lbry_file(rowid, stream_hash, payment_rate_manager,
                                                blob_data_rate, download_directory,
-                                               file_name)
+                                               file_name, sd_hash)
         defer.returnValue(lbry_file)
 
     @defer.inlineCallbacks
